@@ -7,6 +7,19 @@ retirejs http://example.com
 retirejs ~/vcs/test
 ```
 
+## Building
+```
+# Fetch code
+go get github.com/rezen/retirejs
+git clone https://github.com/rezen/retirejs.git
+
+cd ./retirejs/cmd/retirejs/
+go build -o retirejs main.go
+
+# Add binary to your path
+cp retirejs /usr/bin/retirejs
+```
+
 ## Todo
 - Report formats
 - Check sha1 
