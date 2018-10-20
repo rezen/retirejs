@@ -23,12 +23,30 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"sort"
+	"html/template"
 )
 
 var (
 	repository Repository
 	once sync.Once
 )
+
+var reportTemplate = `{{range .Blocks}}
+## Found issue(s) in asset libraries - {{ len .Vulns}}
+**{{.Asset}}**{{with .Vulns}}
+{{range .}}
+### Library
+{{.Library}} {{.Version}} [{{.AtOrAbove}} - {{.Below}}]
+
+### Summary 
+{{ index .Identifiers "CVE" }} {{ index .Identifiers "summary" }}
+
+### Severity
+{{ .Severity }}
+
+### Info
+{{ range .Info }}- {{. }}
+{{end}}{{end}}{{end}}{{end}}`
 
 const (
 	MATCH_URI      = 1
@@ -585,11 +603,19 @@ func ExtractScripts(target string) []string {
 	return urls
 }
 
+type assetBlock struct {
+	Asset string
+	Vulns []VulnerabilityMatch
+}
+
+type reportData struct {
+	Blocks []assetBlock
+}
+
 func PrintVulns(vulns []VulnerabilityMatch) {
 	vulnMap := map[string][]VulnerabilityMatch{}
 	assets := []string{}
 	for _, vuln := range vulns {
-		// printVuln(vuln)
 		if _, ok := vulnMap[vuln.Asset]; !ok {
 			vulnMap[vuln.Asset] = make([]VulnerabilityMatch, 0)
 			assets = append(assets, vuln.Asset)
@@ -597,33 +623,18 @@ func PrintVulns(vulns []VulnerabilityMatch) {
 
 		vulnMap[vuln.Asset] = append(vulnMap[vuln.Asset], vuln)
 	}
-	// @todo use templs
 
-	for asset, vulns := range vulnMap {
-		fmt.Println("-------------------------------------------------")
-		fmt.Printf("## Found issue(s) in asset - %v\n", len(vulns))
-		fmt.Printf("**%v**  \n", asset)
-		fmt.Println("")
-		for _, vuln := range vulns {
+	blocks := []assetBlock{}
 
-			fmt.Println("### Library")
-			fmt.Println(vuln.Library, vuln.Version, "[", vuln.AtOrAbove, "-", vuln.Below, "]")
-			fmt.Println("")
-			fmt.Println("### Summary")
-			fmt.Println(vuln.Identifiers["CVE"], vuln.Identifiers["summary"])
-			fmt.Println("")
-			fmt.Println("### Severity")
-			fmt.Println(vuln.Severity)
-			fmt.Println("")
-			fmt.Println("### Info")
-			// fmt.Println(" ", vuln.MatchType)
-			for _, info := range vuln.Info {
-				fmt.Println("-", info)
-			}
-			fmt.Println("")
-		}
-
+	sort.Strings(assets)
+	for _, asset := range assets {
+		vulns := vulnMap[asset]
+		blocks = append(blocks, assetBlock{asset, vulns})
 	}
+
+	tmpl := template.New("report-default")		
+ 	tmpl, _ = tmpl.Parse(reportTemplate)
+	tmpl.Execute(os.Stdout, reportData{blocks})
 }
 
 func FileExists(file string) bool {
