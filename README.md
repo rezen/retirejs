@@ -1,6 +1,12 @@
 # retirejs
 A cli tool for retirejs written in golang - aka a single binary!
 
+**Features**  
+
+- Scan a specific JavaScript file
+- Scrape JavaScript assets from a url and check for vulnerable libraries
+- Scan a directory for vulnerable libraries
+
 ## Usage
 ```shell
 retirejs http://example.com
