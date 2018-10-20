@@ -1,0 +1,29 @@
+{
+	"ImportPath": "github.com/rezen/retirejs",
+	"GoVersion": "go1.11",
+	"GodepVersion": "v80",
+	"Deps": [
+		{
+			"ImportPath": "github.com/PuerkitoBio/goquery",
+			"Comment": "v1.4.1-1-g8311f59",
+			"Rev": "8311f594d701949445e752a2c4794db4d4a7e204"
+		},
+		{
+			"ImportPath": "github.com/andybalholm/cascadia",
+			"Comment": "v1.0.0",
+			"Rev": "901648c87902174f774fac311d7f176f8647bdaa"
+		},
+		{
+			"ImportPath": "github.com/mcuadros/go-version",
+			"Rev": "6d5863ca60fa6fe914b5fd43ed8533d7567c5b0b"
+		},
+		{
+			"ImportPath": "golang.org/x/net/html",
+			"Rev": "f5e5bdd778241bfefa8627f7124c39cd6ad8d74f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/html/atom",
+			"Rev": "f5e5bdd778241bfefa8627f7124c39cd6ad8d74f"
+		}
+	]
+}
