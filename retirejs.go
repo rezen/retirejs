@@ -11,42 +11,20 @@ import (
 	"os/user"
 	"regexp"
 	"strings"
-	"time"
-	"net"
-	"net/http"
 	"path"
 	"sync"
 	"crypto/sha1"
 	"encoding/hex"
 	"log"
 	"path/filepath"
-	"net/http/cookiejar"
 	"net/url"
 	"sort"
-	"html/template"
 )
 
 var (
 	repository Repository
 	once sync.Once
 )
-
-var reportTemplate = `{{range .Blocks}}
-## Found issue(s) in asset libraries - {{ len .Vulns}}
-**{{.Asset}}**{{with .Vulns}}
-{{range .}}
-### Library
-{{.Library}} {{.Version}} [{{.AtOrAbove}} - {{.Below}}]
-
-### Summary 
-{{ index .Identifiers "CVE" }} {{ index .Identifiers "summary" }}
-
-### Severity
-{{ .Severity }}
-
-### Info
-{{ range .Info }}- {{. }}
-{{end}}{{end}}{{end}}{{end}}`
 
 const (
 	MATCH_URI      = 1
@@ -279,73 +257,6 @@ func fetchRepos() {
 	io.Copy(out, response.Body)
 }
 
-func getTransport() *http.Transport {
-	return &http.Transport{
-		Dial: (&net.Dialer{
-    		Timeout: 3 * time.Second,
-  		}).Dial,
-  		DialContext: (&net.Dialer{
-			Timeout:   3 * time.Second,
-			KeepAlive: 3 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   3 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,    
-	}
-}
-
-func fetchUrl(path string) *http.Response {
-	// @todo configure timeout
-	timeout := time.Duration(3) * time.Second
-	transport := getTransport()
-
-	headers := map[string]string{
-		"X-Retirejs": "1",
-		"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
-		"Cache-Control": "max-age=0",
-		"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-	}
-
-	cookieJar, _ := cookiejar.New(nil)
-	redirects := 0
-
-	client := http.Client{
-    	Timeout: timeout,
-    	Transport: transport,
-    	Jar: cookieJar,
-    	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-    		redirects += 1
-    		if redirects <= 3 {
-				for header, value := range headers {
-						req.Header.Add(header, value)
-					}
-					return nil
-    		}
-      		return http.ErrUseLastResponse
-  		},
-
-	}
-	request, err := http.NewRequest("GET", path, nil)
-
-	for header, value := range headers {
-		request.Header.Add(header, value)
-	}
-
-	if err != nil {
-		fmt.Println("err", err)
-		return &http.Response{}
-	}
-	response, err := client.Do(request)
-
-	if err != nil {
-		fmt.Println("err", err)
-		os.Exit(12)
-		return &http.Response{}
-	}
-	return response
-}
 
 func GetRoot() string {
 	var root string
@@ -467,27 +378,6 @@ func EvaluateFindings(findings []LibraryFinding) []VulnerabilityMatch {
 	return vulns
 }
 
-
-func getContent(uri string) []byte {
-	contents := []byte("")
-	if strings.Contains(uri, "://") {
-		res := fetchUrl(uri)
-		defer res.Body.Close()
-		contents, _ = ioutil.ReadAll(res.Body)
-
-	} else {
-		content, err := ioutil.ReadFile(uri)
-
-		if err != nil {
-			panic(err)
-		}
-
-		contents = content
-	}
-
-	return contents
-}
-
 func mapFindings(f []LibraryFinding, m func(LibraryFinding) LibraryFinding) []LibraryFinding {
     all := make([]LibraryFinding, len(f))
     for i, v := range f {
@@ -602,47 +492,3 @@ func ExtractScripts(target string) []string {
 	})
 	return urls
 }
-
-type assetBlock struct {
-	Asset string
-	Vulns []VulnerabilityMatch
-}
-
-type reportData struct {
-	Blocks []assetBlock
-}
-
-func PrintVulns(vulns []VulnerabilityMatch) {
-	vulnMap := map[string][]VulnerabilityMatch{}
-	assets := []string{}
-	for _, vuln := range vulns {
-		if _, ok := vulnMap[vuln.Asset]; !ok {
-			vulnMap[vuln.Asset] = make([]VulnerabilityMatch, 0)
-			assets = append(assets, vuln.Asset)
-		}
-
-		vulnMap[vuln.Asset] = append(vulnMap[vuln.Asset], vuln)
-	}
-
-	blocks := []assetBlock{}
-
-	sort.Strings(assets)
-	for _, asset := range assets {
-		vulns := vulnMap[asset]
-		blocks = append(blocks, assetBlock{asset, vulns})
-	}
-
-	tmpl := template.New("report-default")		
- 	tmpl, _ = tmpl.Parse(reportTemplate)
-	tmpl.Execute(os.Stdout, reportData{blocks})
-}
-
-func FileExists(file string) bool {
-	if _, err := os.Stat(file); err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-	}
-	return true
-}
-

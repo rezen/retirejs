@@ -4,7 +4,6 @@ import (
 	"os"
 	"time"
 	"github.com/rezen/retirejs"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"strings"
@@ -87,15 +86,11 @@ func main() {
 
 	if printJson {
 		fmt.Println("-------------------------------------------------")
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "    ")
-		if err := enc.Encode(vulns); err != nil {
-	    	panic(err)
-		}
+		fmt.Println(string(retirejs.ReportJson(vulns)))
 		os.Exit(1)
 	}
 
-	retirejs.PrintVulns(vulns)
+	fmt.Println(string(retirejs.ReportMarkdown(vulns)))
 
 	
 	os.Exit(1)
